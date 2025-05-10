@@ -82,8 +82,10 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
+  // Get theme from <html> for SSR fallback
+  const theme = typeof window !== 'undefined' && document.documentElement.classList.contains('dark') ? 'dark' : 'light';
   return (
-    <html lang="en">
+    <html lang="en" className={theme} style={{ colorScheme: theme }}>
       <head>
         <script
           type="application/ld+json"

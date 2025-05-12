@@ -14,7 +14,7 @@ export default function ChatbotButton() {
       {isOpen ? (
         <Card className="w-80 sm:w-96 shadow-lg border-[#9bc3a2]/20 animate-in slide-in-from-bottom-5">
           <CardHeader className="bg-[#9bc3a2] text-white py-3 px-4 flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-base font-medium text-white">Virtual Assistant</CardTitle>
+            <CardTitle className="text-base font-medium text-white">AI Assistant</CardTitle>
             <Button
               variant="ghost"
               size="icon"
@@ -28,9 +28,7 @@ export default function ChatbotButton() {
           <CardContent className="p-4 h-80 overflow-y-auto">
             <div className="space-y-4">
               <div className="bg-[#d1eee4] p-3 rounded-lg rounded-tl-none max-w-[80%]">
-                <p className="text-sm">
-                  Hello! I'm your virtual assistant. How can I help you find the right senior care today?
-                </p>
+                <p className="text-sm">Hello Jane! I'm your AI assistant. How can I help you with senior care today?</p>
               </div>
               <div className="bg-[#d1eee4] p-3 rounded-lg rounded-tl-none max-w-[80%]">
                 <p className="text-sm">I can help with:</p>
@@ -38,7 +36,7 @@ export default function ChatbotButton() {
                   <li>Finding care options</li>
                   <li>Understanding services</li>
                   <li>Scheduling consultations</li>
-                  <li>Answering common questions</li>
+                  <li>Answering questions</li>
                 </ul>
               </div>
             </div>

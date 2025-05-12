@@ -57,7 +57,9 @@ export default function Header() {
           ))}
         </div>
         <div className="hidden lg:flex lg:flex-1 lg:justify-end">
-          <Button className="bg-[#9bc3a2] hover:bg-[#9bc3a2]/90">Get Started</Button>
+          <Button className="bg-[#9bc3a2] hover:bg-[#9bc3a2]/90" asChild>
+            <Link href="/login">Get Started</Link>
+          </Button>
         </div>
       </nav>
 
@@ -99,7 +101,9 @@ export default function Header() {
                     </Link>
                   ))}
                   <div className="mt-4">
-                    <Button className="w-full bg-[#9bc3a2] hover:bg-[#9bc3a2]/90">Get Started</Button>
+                    <Button className="w-full bg-[#9bc3a2] hover:bg-[#9bc3a2]/90" asChild>
+                      <Link href="/login">Get Started</Link>
+                    </Button>
                   </div>
                 </div>
               </div>

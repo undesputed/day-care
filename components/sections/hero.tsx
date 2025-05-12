@@ -41,8 +41,8 @@ export default function Hero() {
             of finding quality care for your loved ones.
           </p>
           <div className="mt-10 flex items-center justify-center gap-x-6">
-            <Link href="#services">
-              <Button className="bg-[#9bc3a2] hover:bg-[#9bc3a2]/90 text-lg px-6 py-6">Explore Services</Button>
+            <Link href="/login">
+              <Button className="bg-[#9bc3a2] hover:bg-[#9bc3a2]/90 text-lg px-6 py-6">Get Started</Button>
             </Link>
             <Link href="#about">
               <Button

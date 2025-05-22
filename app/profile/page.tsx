@@ -1,3 +1,6 @@
+"use client";
+
+import React from "react";
 import { Badge } from "@/components/ui/badge"
 import AuthLayout from "@/components/layout/auth-layout"
 import { Button } from "@/components/ui/button"
@@ -8,11 +11,81 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Separator } from "@/components/ui/separator"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Building2, Calendar, Trash2 } from "lucide-react"
+import { getProfile } from "@/actions/profile/actions"
+import { Textarea } from "@/components/ui/textarea"
+import { UserProfile } from "@/types/user_profile"
+import { updateProfile } from "@/actions/profile/actions"
+import { updatePassword } from "@/actions/auth/actions";
 
 export default function ProfilePage() {
+  const [profile, setProfile] = React.useState<UserProfile | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    const fetchProfile = async () => {
+      const profileData = await getProfile();
+      if ("error" in profileData) {
+        setError(profileData.error);
+      } else {
+        setProfile(profileData as UserProfile);
+      }
+    };
+    fetchProfile();
+  }, []);
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!profile) return;
+    const formData = new FormData(event.target as HTMLFormElement);
+    const updatedProfile: UserProfile = {
+      ...profile,
+      first_name: formData.get('first-name') as string,
+      last_name: formData.get('last-name') as string,
+      phone_number: formData.get('phone') as string,
+      address: formData.get('address') as string,
+      city: formData.get('city') as string,
+      state: formData.get('state') as string,
+      zip_code: formData.get('zip-code') as string,
+      preferences_json: formData.get('preferences') as string,
+    };
+    const result = await updateProfile(updatedProfile);
+    if (result.error) {
+      console.error(result.error);
+    } else {
+      console.log('Profile updated successfully');
+    }
+  };
+
+  const handlePasswordUpdate = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const formData = new FormData(event.target as HTMLFormElement);
+    const newPassword = formData.get('new-password') as string;
+    const confirmPassword = formData.get('confirm-password') as string;
+
+    if (newPassword !== confirmPassword) {
+      console.error('Passwords do not match');
+      return;
+    }
+
+    try {
+      await updatePassword(formData);
+      console.log('Password updated successfully');
+    } catch (error) {
+      console.error('Error updating password:', error);
+    }
+  };
+
+  if (error) {
+    return <div>{error}</div>;
+  }
+
+  if (!profile) {
+    return <div>Loading...</div>;
+  }
+
   return (
     <AuthLayout>
-      <div className="flex flex-col gap-6">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Your Profile</h1>
           <p className="text-muted-foreground mt-2">Manage your account information and preferences.</p>
@@ -40,8 +113,8 @@ export default function ProfilePage() {
                 <CardContent className="space-y-4">
                   <div className="flex flex-col md:flex-row gap-4 items-center mb-6">
                     <Avatar className="h-20 w-20">
-                      <AvatarImage src="/avatar.png" alt="Jane Dela Cruz" />
-                      <AvatarFallback className="bg-[#9bc3a2] text-white text-xl">JD</AvatarFallback>
+                      <AvatarImage src={profile.avatar || "/avatar.png"} alt={`${profile.first_name} ${profile.last_name}`} />
+                      <AvatarFallback className="bg-[#9bc3a2] text-white text-xl">{profile.first_name[0]}{profile.last_name[0]}</AvatarFallback>
                     </Avatar>
                     <div className="flex-1">
                       <h3 className="font-medium">Profile Photo</h3>
@@ -69,11 +142,11 @@ export default function ProfilePage() {
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-2">
                       <Label htmlFor="first-name">First Name</Label>
-                      <Input id="first-name" defaultValue="Jane" className="focus-visible:ring-[#9bc3a2]" />
+                      <Input id="first-name" name="first-name" defaultValue={profile.first_name} className="focus-visible:ring-[#9bc3a2]" />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="last-name">Last Name</Label>
-                      <Input id="last-name" defaultValue="Dela Cruz" className="focus-visible:ring-[#9bc3a2]" />
+                      <Input id="last-name" name="last-name" defaultValue={profile.last_name} className="focus-visible:ring-[#9bc3a2]" />
                     </div>
                   </div>
                   <div className="space-y-2">
@@ -81,13 +154,58 @@ export default function ProfilePage() {
                     <Input
                       id="email"
                       type="email"
-                      defaultValue="jane.delacruz@example.com"
+                      defaultValue={profile.email}
+                      className="focus-visible:ring-[#9bc3a2]"
+                      disabled
+                    />
+                    <p className="text-xs text-muted-foreground">Email cannot be changed</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">Phone Number</Label>
+                    <Input
+                      id="phone"
+                      name="phone"
+                      type="tel"
+                      defaultValue={profile.phone_number || ""}
                       className="focus-visible:ring-[#9bc3a2]"
                     />
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="address">Address</Label>
+                    <Input id="address" name="address" defaultValue={profile.address || ""} className="focus-visible:ring-[#9bc3a2]" />
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="city">City</Label>
+                      <Input id="city" name="city" defaultValue={profile.city || ""} className="focus-visible:ring-[#9bc3a2]" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="state">State</Label>
+                      <Input id="state" name="state" defaultValue={profile.state || ""} className="focus-visible:ring-[#9bc3a2]" />
+                    </div>
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="zip-code">ZIP Code</Label>
+                      <Input id="zip-code" name="zip-code" defaultValue={profile.zip_code || ""} className="focus-visible:ring-[#9bc3a2]" />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="preferences">Preferences</Label>
+                    <Textarea
+                      id="preferences"
+                      name="preferences"
+                      className="min-h-[100px] focus-visible:ring-[#9bc3a2]"
+                      placeholder="Enter any specific preferences for senior care services"
+                      defaultValue={profile.preferences_json || ""}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      These preferences will help us tailor recommendations to your needs
+                    </p>
+                  </div>
                 </CardContent>
                 <CardFooter>
-                  <Button className="bg-[#9bc3a2] hover:bg-[#9bc3a2]/90">Save Changes</Button>
+                  <Button type="submit" className="bg-[#9bc3a2] hover:bg-[#9bc3a2]/90">Save Changes</Button>
                 </CardFooter>
               </Card>
 
@@ -103,15 +221,15 @@ export default function ProfilePage() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="new-password">New Password</Label>
-                    <Input id="new-password" type="password" className="focus-visible:ring-[#9bc3a2]" />
+                    <Input id="new-password" name="new-password" type="password" className="focus-visible:ring-[#9bc3a2]" />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="confirm-password">Confirm New Password</Label>
-                    <Input id="confirm-password" type="password" className="focus-visible:ring-[#9bc3a2]" />
+                    <Input id="confirm-password" name="confirm-password" type="password" className="focus-visible:ring-[#9bc3a2]" />
                   </div>
                 </CardContent>
                 <CardFooter>
-                  <Button className="bg-[#9bc3a2] hover:bg-[#9bc3a2]/90">Update Password</Button>
+                  <Button type="submit" className="bg-[#9bc3a2] hover:bg-[#9bc3a2]/90">Update Password</Button>
                 </CardFooter>
               </Card>
 
@@ -328,7 +446,32 @@ export default function ProfilePage() {
             </div>
           </TabsContent>
         </Tabs>
-      </div>
+      </form>
+      <form onSubmit={handlePasswordUpdate} className="flex flex-col gap-6">
+        <Card className="border-[#bdd8c0]">
+          <CardHeader>
+            <CardTitle>Password</CardTitle>
+            <CardDescription>Change your password</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="current-password">Current Password</Label>
+              <Input id="current-password" type="password" className="focus-visible:ring-[#9bc3a2]" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="new-password">New Password</Label>
+              <Input id="new-password" name="new-password" type="password" className="focus-visible:ring-[#9bc3a2]" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirm-password">Confirm New Password</Label>
+              <Input id="confirm-password" name="confirm-password" type="password" className="focus-visible:ring-[#9bc3a2]" />
+            </div>
+          </CardContent>
+          <CardFooter>
+            <Button type="submit" className="bg-[#9bc3a2] hover:bg-[#9bc3a2]/90">Update Password</Button>
+          </CardFooter>
+        </Card>
+      </form>
     </AuthLayout>
   )
 }

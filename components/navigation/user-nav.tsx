@@ -1,5 +1,6 @@
 "use client"
 
+import { signOut } from "@/actions/auth/actions"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
@@ -53,7 +54,7 @@ export function UserNav() {
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DropdownMenuItem asChild>
-            <Link href="/logout">Log out</Link>
+            <Link href="/" onClick={signOut}>Log out</Link>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

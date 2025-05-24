@@ -16,23 +16,16 @@ export async function createClient() {
         supabaseServiceRoleKey,
         {
             cookies: {
-                get(name: string){
-                    return cookieStore.get(name)?.value;
+                getAll() {
+                    return cookieStore.getAll();
                 },
-                set(name: string, value: string, options: CookieOptions){
+                setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]){
                     try {
-                        cookieStore.set(name, value, options);
+                        cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options))
                     } catch (error) {
-                        console.error("Error setting cookie", error);
+                        console.error("Error setting cookies", error);
                     }
                 },
-                remove(name: string, options: CookieOptions){
-                    try {
-                        cookieStore.set({name, value: "", ...options});
-                    } catch (error) {
-                        console.error("Error deleting cookie", error);
-                    }
-                }
             }
         }
     )

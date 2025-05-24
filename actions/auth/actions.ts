@@ -6,7 +6,7 @@ import { createClient } from "@/utils/supabase/server";
 
 
 export async function signUp(formData: FormData){
-    const supabase = createClient();
+    const supabase = await createClient();
     const firstName = formData.get("fName") as string;
     const lastName = formData.get("lName") as string;
 
@@ -16,7 +16,7 @@ export async function signUp(formData: FormData){
         password: formData.get("password") as string,
     }
 
-    const {data, error} = await (await supabase).auth.signUp(credentials);
+    const {data, error} = await supabase.auth.signUp(credentials);
     if (error) {
         console.error(error);
         throw new Error(error.message);
@@ -55,7 +55,7 @@ export async function signUp(formData: FormData){
 }
 
 export async function signIn(formData: FormData){
-    const supabase = createClient();    
+    const supabase = await createClient();    
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
     console.log(email, password);
@@ -65,7 +65,7 @@ export async function signIn(formData: FormData){
         password: password,
     }
 
-    const {error} = await (await supabase).auth.signInWithPassword(data);
+    const {error} = await supabase.auth.signInWithPassword(data);
 
     if(error){
         console.error(error);
@@ -77,9 +77,9 @@ export async function signIn(formData: FormData){
 }
 
 export async function signOut(){
-    const supabase = createClient();
+    const supabase = await createClient();
 
-    const {error} = await (await supabase).auth.signOut();
+    const {error} = await supabase.auth.signOut();
 
     if(error){
         throw new Error(error.message);
@@ -89,9 +89,9 @@ export async function signOut(){
 }
 
 export async function passwordReset(formData: FormData){
-    const supabase = createClient();
+    const supabase = await createClient();
     const email = formData.get("email") as string;
-    const {error} = await (await supabase).auth.resetPasswordForEmail(email, {
+    const {error} = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/reset-password`,
     });
 
@@ -104,9 +104,9 @@ export async function passwordReset(formData: FormData){
 }
 
 export async function updatePassword(formData: FormData){
-    const supabase = createClient();
+    const supabase = await createClient();
     const password = formData.get("password") as string;
-    const {error} = await (await supabase).auth.updateUser({
+    const {error} = await supabase.auth.updateUser({
         password: password,
     });
 

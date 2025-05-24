@@ -4,14 +4,14 @@ import { UserProfile } from "@/types/user_profile";
 import { createClient } from "@/utils/supabase/server";
 
 export async function getProfile(){
-    const supabase = createClient();
-    const {data: {user}} = await (await supabase).auth.getUser();
+    const supabase = await createClient();
+    const {data: {user}} = await supabase.auth.getUser();
 
     if(!user){
         return {error: "User not found"};
     }
 
-    const {data, error} = await (await supabase).from("user_profile").select("*").eq("user_id", user.id).single();
+    const {data, error} = await supabase.from("user_profile").select("*").eq("user_id", user.id).single();
 
     if(error){
         console.error(error);
@@ -25,7 +25,7 @@ export async function getProfile(){
 }
 
 export async function updateProfile(profile: UserProfile){
-    const supabase = createClient();
+    const supabase = await createClient();
 
     const params = {
         user_role: profile.user_role,
@@ -40,7 +40,7 @@ export async function updateProfile(profile: UserProfile){
         preferences_json: profile.preferences_json,
     }
 
-    const {data, error} = await (await supabase).from("user_profile").update(params).eq("id", profile.id);
+    const {data, error} = await supabase.from("user_profile").update(params).eq("id", profile.id);
     
     if (error) {
         console.error(error);

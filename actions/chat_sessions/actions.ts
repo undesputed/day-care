@@ -14,7 +14,7 @@ export const createChatSession = async (data: ChatSession) => {
     data.user_id = user.id;
     data.created_at = new Date().toISOString();
 
-    const { data: insertedData, error } = await supabase.from("chat_sessions").insert(data);
+    const { data: insertedData, error } = await supabase.from("chat_sessions").insert(data).select().single();
 
     if (error) {
         console.error(error);
@@ -44,19 +44,13 @@ export const getChatSessionByUserId = async () => {
         .eq('status', 'incomplete')
         .order('created_at', { ascending: false })
         .limit(1);
-
         
     if (queryError) {
         console.error('Query Error:', queryError);
         return { error: queryError.message };
     }
 
-    if (!chatSession || chatSession.length === 0) {
-        console.warn("No chat session found for user.");
-        return { data: null };
-    }
-
-    return { data: chatSession[0] };
+    return { data: chatSession?.[0] || null };
 };
 
 export const updateChatSession = async (id: string, data: Partial<ChatSession>) => {

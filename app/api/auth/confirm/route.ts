@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
   const next = searchParams.get("next") as string | null;
 
   const redirectTo = request.nextUrl.clone();
-  redirectTo.pathname = next || "/dashboard"; // maybe redirect to login after success?
+  redirectTo.pathname = next || "/login"; // maybe redirect to login after success?
   redirectTo.searchParams.delete("token_hash");
   redirectTo.searchParams.delete("type");
   redirectTo.searchParams.delete("next");

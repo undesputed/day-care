@@ -394,30 +394,49 @@ export default function ChatPage() {
   useEffect(() => {
     const fetchChatSession = async () => {
       try {
-        let session = await getChatSessionByUserId()
-        if (session.error || !session.data || session.data.length === 0) {
-          const thread = await createThread()
-          setThreadId(thread.id)
-          const newSession: any = {
-            thread_id: thread.id,
-            ai_summary: [],
-            status: "incomplete",
-            is_ready_for_match: false,
-            created_at: "2025-05-24T14:30:00.000Z",
-          }
-          const newSessionResponse = await createChatSession(newSession)
-
-          if (newSessionResponse.error) {
-            setError(newSessionResponse.error)
-            return
-          }
-
-          session = { data: [newSessionResponse.data] }
+        const session = await getChatSessionByUserId()
+        
+        if (session.error) {
+          setError(session.error)
+          return
         }
 
-        if (session.data && session.data) {
-          setChatSession(session.data as ChatSession)
+        if (!session.data) {
+          // Create new thread and session
+          try {
+            const thread = await createThread()
+            setThreadId(thread.id)
+            
+            const newSession: Partial<ChatSession> = {
+              thread_id: thread.id,
+              ai_summary: [],
+              status: "incomplete",
+              is_ready_for_match: false,
+              created_at: new Date().toISOString(),
+            }
+            
+            const newSessionResponse = await createChatSession(newSession as ChatSession)
+            
+            if (newSessionResponse.error) {
+              setError(newSessionResponse.error)
+              return
+            }
+
+            if (newSessionResponse.data) {
+              setChatSession(newSessionResponse.data)
+              setThreadId(newSessionResponse.data.thread_id)
+            }
+          } catch (err) {
+            console.error("Error creating new session:", err)
+            setError("Failed to create new chat session")
+            return
+          }
+        } else {
+          // Use existing session
+          setChatSession(session.data)
           setThreadId(session.data.thread_id)
+          
+          // Load intake profile and messages
           const sessionId = session.data.id
           if (sessionId) {
             const intakeProfile = await getIntakeProfile(sessionId)
@@ -426,6 +445,7 @@ export default function ChatPage() {
             } else if (intakeProfile.data) {
               setIntakeProfile(intakeProfile.data[0] as IntakeProfile)
             }
+            
             const messages = await getChatMessages(sessionId)
             if (messages.error) {
               setError(messages.error)
@@ -443,8 +463,8 @@ export default function ChatPage() {
           }
         }
       } catch (err) {
+        console.error("Error in fetchChatSession:", err)
         setError("Failed to load chat session")
-        console.error(err)
       }
     }
 

@@ -27,11 +27,6 @@ export async function signUp(formData: FormData){
         throw new Error("User not returned after sign-up.");
     }
 
-    if (error) {
-        console.error(error);
-        throw new Error(error);
-    }
-
     revalidatePath("/", "layout");
     redirect("/login");
 }

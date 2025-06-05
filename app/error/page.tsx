@@ -11,6 +11,9 @@ export default function Error({
   error: Error & { digest?: string }
   reset: () => void
 }) {
+  // Safely get error message
+  const errorMessage = error?.message || "An unexpected error occurred";
+  
   return (
     <main className="min-h-screen bg-[#c2dacc] flex items-center justify-center px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8 text-center bg-[#d1eee4] p-8 rounded-lg shadow-md">
@@ -19,8 +22,8 @@ export default function Error({
             <AlertCircle className="h-12 w-12 text-[#9bc3a2]" />
           </div>
           <h2 className="mt-6 text-3xl font-extrabold text-gray-900">Oops! Something went wrong.</h2>
-          <p className="mt-2 text-sm text-gray-600">{error.message || "An unexpected error occurred"}</p>
-          {error.digest && <p className="mt-2 text-xs text-gray-500">Error ID: {error.digest}</p>}
+          <p className="mt-2 text-sm text-gray-600">{errorMessage}</p>
+          {error?.digest && <p className="mt-2 text-xs text-gray-500">Error ID: {error.digest}</p>}
         </div>
         <div className="space-y-4">
           <Button className="w-full bg-[#9bc3a2] hover:bg-[#8ab391] text-white" onClick={() => reset()}>

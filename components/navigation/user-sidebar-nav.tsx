@@ -14,6 +14,7 @@ import {
   HelpCircle,
   LogOut,
 } from "lucide-react"
+import { signOut } from "@/actions/auth/actions"
 
 const navItems = [
   {
@@ -26,21 +27,21 @@ const navItems = [
     href: "/chat",
     icon: MessageSquare,
   },
-  {
-    title: "Conversation Summary",
-    href: "/summary",
-    icon: FileText,
-  },
+  // {
+  //   title: "Conversation Summary",
+  //   href: "/summary",
+  //   icon: FileText,
+  // },
   {
     title: "Schedule AI Call",
     href: "/schedule",
     icon: Calendar,
   },
-  {
-    title: "Provider Matches",
-    href: "/matches",
-    icon: Building2,
-  },
+  // {
+  //   title: "Provider Matches",
+  //   href: "/matches",
+  //   icon: Building2,
+  // },
   {
     title: "Profile",
     href: "/profile",
@@ -51,11 +52,11 @@ const navItems = [
     href: "/history",
     icon: Clock,
   },
-  {
-    title: "Support Center",
-    href: "/support",
-    icon: HelpCircle,
-  },
+  // {
+  //   title: "Support Center",
+  //   href: "/support",
+  //   icon: HelpCircle,
+  // },
 ]
 
 export default function UserSidebarNav() {
@@ -88,13 +89,13 @@ export default function UserSidebarNav() {
           </Link>
         ))}
         <div className="mt-auto pt-4">
-          <Link
-            href="/logout"
+          <button
+            onClick={signOut}
             className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-gray-600 hover:bg-[#9bc3a2]/10 hover:text-[#9bc3a2] transition-colors"
           >
             <LogOut className="h-5 w-5" />
             Sign Out
-          </Link>
+          </button>
         </div>
       </div>
     </div>

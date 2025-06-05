@@ -27,27 +27,9 @@ export async function signUp(formData: FormData){
         throw new Error("User not returned after sign-up.");
     }
 
-    const userProfile = {
-        user_id: data.user.id,
-        user_role: "user",
-        avatar: null,
-        first_name: firstName,
-        last_name: lastName,
-        phone_number: null,
-        address: null,
-        city: null,
-        state: null,
-        zip_code: null,
-        preferences_json: null,
-        notification_settings_json: null,
-        active: true,
-    };
-
-    const { error: profileError } = await (await supabase).from("user_profile").insert(userProfile);
-
-    if (profileError) {
-        console.error(profileError);
-        throw new Error(profileError.message);
+    if (error) {
+        console.error(error);
+        throw new Error(error);
     }
 
     revalidatePath("/", "layout");
@@ -65,11 +47,44 @@ export async function signIn(formData: FormData){
         password: password,
     }
 
-    const {error} = await supabase.auth.signInWithPassword(data);
+    const { data: signInData, error } = await supabase.auth.signInWithPassword(data);
 
     if(error){
         console.error(error);
         throw new Error(error.message);
+    }
+
+    // After successful login, check if user_profile exists
+    const user = signInData.user;
+    if (user) {
+        const { data: profile, error: profileError } = await supabase
+            .from("user_profile")
+            .select("*")
+            .eq("user_id", user.id)
+            .single();
+        if (profileError && profileError.code === 'PGRST116') {
+            // No profile found, create one with default values
+            const userProfile = {
+                user_id: user.id,
+                user_role: "user",
+                avatar: null,
+                first_name: "",
+                last_name: "",
+                phone_number: null,
+                address: null,
+                city: null,
+                state: null,
+                zip_code: null,
+                preferences_json: null,
+                notification_settings_json: null,
+                active: true,
+            };
+            const { error: insertError } = await supabase.from("user_profile").insert(userProfile);
+            if (insertError) {
+                console.error(insertError);
+                throw new Error(insertError.message);
+            }
+        }
     }
 
     revalidatePath("/", "layout");

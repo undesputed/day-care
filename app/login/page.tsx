@@ -12,10 +12,6 @@ export default async function LoginPage() {
   const supabase = createClient();
   const {data} = await (await supabase).auth.getUser();
 
-  if(data.user){
-    redirect("/");
-  }
-
   return (
     <div className="min-h-screen bg-[#c2dacc]/30 flex flex-col">
       <header className="bg-white shadow-sm py-4">
@@ -64,7 +60,7 @@ export default async function LoginPage() {
               <Button className="w-full bg-[#9bc3a2] hover:bg-[#9bc3a2]/90" type="submit">Sign In</Button>
             </form>
           </CardContent>
-          {/* <CardFooter className="flex flex-col space-y-4">
+          <CardFooter className="flex flex-col space-y-4">
             <div className="relative my-2">
               <div className="absolute inset-0 flex items-center">
                 <span className="w-full border-t border-gray-300" />
@@ -119,7 +115,7 @@ export default async function LoginPage() {
                 Create one
               </Link>
             </div>
-          </CardFooter> */}
+          </CardFooter>
         </Card>
       </main>
 

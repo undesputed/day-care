@@ -11,7 +11,7 @@ export const createIntakeProfile = async (data: IntakeProfile) => {
         return {error: "User not found"};
     }
 
-    const {data: insertedData, error} = await supabase.from("intake_profiles").insert(data);
+    const {data: insertedData, error} = await supabase.from("intake_profiles").upsert(data, { onConflict: 'id' });
 
     if(error){
         return {error: error.message};

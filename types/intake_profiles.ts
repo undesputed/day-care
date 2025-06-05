@@ -14,4 +14,6 @@ export type IntakeProfile = {
     is_ready_for_match: boolean;
     summary_completed: boolean;
     additional_notes: string;
+    first_name: string;
+    last_name: string;
 }

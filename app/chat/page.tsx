@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+import ReactMarkdown from "react-markdown"
 
 import AuthLayout from "@/components/layout/auth-layout"
 import { Button } from "@/components/ui/button"
@@ -14,8 +15,22 @@ import { useEffect, useState, useRef } from "react"
 import type { ChatSession } from "@/types/chat_sessions"
 import type { ChatMessage } from "@/types/chat_messages"
 import type { IntakeProfile } from "@/types/intake_profiles"
-import { getIntakeProfile } from "@/actions/intake_profiles/actions"
+import { getIntakeProfile, createIntakeProfile, updateIntakeProfile } from "@/actions/intake_profiles/actions"
 import { Textarea } from "@/components/ui/textarea"
+import { updateChatSession } from "@/actions/chat_sessions/actions"
+import { toast } from "@/components/ui/use-toast"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { createAdminNotification } from '@/actions/admin/admin_notification/actions'
+import { getProfile } from '@/actions/profile/actions'
 
 // Typing indicator component
 const TypingIndicator = () => {
@@ -39,6 +54,111 @@ const TypingIndicator = () => {
   )
 }
 
+// Function to format AI responses and convert JSON blocks to readable text
+const formatAIResponse = (message: string): string => {
+  // Regular expression to match JSON code blocks
+  const jsonBlockRegex = /```json\s*\n([\s\S]*?)\n```/g
+
+  let formattedMessage = message
+  let match
+
+  while ((match = jsonBlockRegex.exec(message)) !== null) {
+    const jsonString = match[1]
+    const fullMatch = match[0]
+
+    try {
+      const jsonData = JSON.parse(jsonString)
+      let readableText = ""
+
+      // Handle different types of JSON structures
+      if (jsonData.care_type || jsonData.preferred_region) {
+        // This is a care profile summary
+        readableText = formatCareProfile(jsonData)
+      } else if (jsonData.suggested_provider_tags) {
+        // This is provider matching tags
+        readableText = formatProviderTags(jsonData)
+      } else {
+        // Generic JSON formatting
+        readableText = formatGenericJson(jsonData)
+      }
+
+      formattedMessage = formattedMessage.replace(fullMatch, readableText)
+    } catch (error) {
+      // If JSON parsing fails, leave the original block
+      console.warn("Failed to parse JSON block:", error)
+    }
+  }
+
+  return formattedMessage
+}
+
+const formatCareProfile = (data: any): string => {
+  const careTypeMap: { [key: string]: string } = {
+    nursing_home: "Nursing Home",
+    assisted_living: "Assisted Living",
+    memory_care: "Memory Care",
+    independent_living: "Independent Living",
+    home_care: "Home Care",
+  }
+
+  let formatted = "📋 **Care Profile Summary:**\n\n"
+
+  if (data.care_type) {
+    formatted += `• **Care Type:** ${careTypeMap[data.care_type] || data.care_type}\n`
+  }
+  if (data.preferred_region) {
+    formatted += `• **Location:** ${data.preferred_region}\n`
+  }
+  if (data.budget_min && data.budget_max) {
+    formatted += `• **Budget Range:** $${data.budget_min.toLocaleString()} - $${data.budget_max.toLocaleString()}\n`
+  }
+  if (data.move_in_timeline) {
+    formatted += `• **Move-in Timeline:** ${data.move_in_timeline}\n`
+  }
+  if (data.special_needs) {
+    formatted += `• **Special Care Needs:** ${data.special_needs}\n`
+  }
+  if (data.user_role) {
+    formatted += `• **Your Role:** ${data.user_role}\n`
+  }
+  if (data.additional_notes) {
+    formatted += `• **Additional Notes:** ${data.additional_notes}\n`
+  }
+
+  return formatted
+}
+
+const formatProviderTags = (data: any): string => {
+  let formatted = "🏷️ **Recommended Provider Categories:**\n\n"
+
+  if (data.suggested_provider_tags && Array.isArray(data.suggested_provider_tags)) {
+    data.suggested_provider_tags.forEach((tag: string, index: number) => {
+      formatted += `${index + 1}. ${tag}\n`
+    })
+  }
+
+  return formatted
+}
+
+const formatGenericJson = (data: any): string => {
+  let formatted = "📊 **Information Summary:**\n\n"
+
+  Object.entries(data).forEach(([key, value]) => {
+    const formattedKey = key.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())
+
+    if (Array.isArray(value)) {
+      formatted += `• **${formattedKey}:**\n`
+      value.forEach((item, index) => {
+        formatted += `  ${index + 1}. ${item}\n`
+      })
+    } else {
+      formatted += `• **${formattedKey}:** ${value}\n`
+    }
+  })
+
+  return formatted
+}
+
 export default function ChatPage() {
   const [chatSession, setChatSession] = useState<ChatSession | null>(null)
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
@@ -50,6 +170,12 @@ export default function ChatPage() {
   const [isSending, setIsSending] = useState<boolean>(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const [isSummaryLoading, setIsSummaryLoading] = useState(false)
+  const [summaryStatus, setSummaryStatus] = useState<string | null>(null)
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [editForm, setEditForm] = useState<IntakeProfile | null>(null)
+  const [editLoading, setEditLoading] = useState(false)
+  const [editError, setEditError] = useState<string | null>(null)
 
   // Auto-scroll to bottom when new messages arrive
   const scrollToBottom = () => {
@@ -61,8 +187,9 @@ export default function ChatPage() {
   }, [chatMessages, isTyping])
 
   const saveMessage = async (message: string, sender: string) => {
+    console.log("Chat Session ID:", chatSession)
     if (!chatSession?.id) {
-      console.error("No chat session ID available")
+      console.log("No chat session ID available")
       return null
     }
 
@@ -183,20 +310,24 @@ export default function ChatPage() {
       setIsTyping(false)
 
       if (run.reply) {
-        // Save AI response to database
+        // Format the AI response before saving/displaying
+        const formattedReply = formatAIResponse(run.reply)
+
+        // Save AI response to database (save original for data integrity)
         const savedAIMessage: any = await saveMessage(run.reply, "assistant")
 
         if (savedAIMessage?.data) {
-          // Add AI message to UI
-          setChatMessages((prev) => [...prev, savedAIMessage.data])
+          // Update the saved message with formatted content for display
+          const displayMessage = { ...savedAIMessage.data, message: formattedReply }
+          setChatMessages((prev) => [...prev, displayMessage])
           console.log("AI message added to UI")
         } else {
-          // If saving failed, still show the message in UI
+          // If saving failed, still show the formatted message in UI
           const aiMessage: ChatMessage = {
             id: `ai-${Date.now()}`,
             session_id: chatSession?.id || "",
             sender: "assistant",
-            message: run.reply,
+            message: formattedReply,
             created_at: new Date().toISOString(),
           }
           setChatMessages((prev) => [...prev, aiMessage])
@@ -215,8 +346,10 @@ export default function ChatPage() {
       setChatMessages((prev) => prev.filter((msg) => msg.id !== tempId))
     } finally {
       setIsSending(false)
-      // Focus back to input
-      inputRef.current?.focus()
+      // Ensure focus is restored with a small delay to handle async state updates
+      setTimeout(() => {
+        inputRef.current?.focus()
+      }, 100)
     }
   }
 
@@ -230,6 +363,10 @@ export default function ChatPage() {
 
   const handleSendClick = () => {
     sendMessage(message)
+    // Restore focus immediately after clicking send
+    setTimeout(() => {
+      inputRef.current?.focus()
+    }, 50)
   }
 
   // Refresh messages function
@@ -238,8 +375,15 @@ export default function ChatPage() {
       try {
         const messages = await getChatMessages(chatSession.id)
         if (messages.data) {
-          setChatMessages(messages.data)
-          console.log("Messages refreshed:", messages.data.length)
+          // Format existing messages when refreshing
+          const formattedMessages = messages.data.map((msg) => {
+            if (msg.sender === "assistant") {
+              return { ...msg, message: formatAIResponse(msg.message) }
+            }
+            return msg
+          })
+          setChatMessages(formattedMessages)
+          console.log("Messages refreshed:", formattedMessages.length)
         }
       } catch (error) {
         console.error("Error refreshing messages:", error)
@@ -286,8 +430,15 @@ export default function ChatPage() {
             if (messages.error) {
               setError(messages.error)
             } else if (messages.data) {
-              setChatMessages(messages.data)
-              console.log("Initial messages loaded:", messages.data.length)
+              // Format existing messages on initial load
+              const formattedMessages = messages.data.map((msg) => {
+                if (msg.sender === "assistant") {
+                  return { ...msg, message: formatAIResponse(msg.message) }
+                }
+                return msg
+              })
+              setChatMessages(formattedMessages)
+              console.log("Initial messages loaded:", formattedMessages.length)
             }
           }
         }
@@ -304,6 +455,152 @@ export default function ChatPage() {
   useEffect(() => {
     inputRef.current?.focus()
   }, [])
+
+  // Helper: Validate IntakeProfile fields (except id, created_at)
+  const isIntakeProfileReady = (profile: any) => {
+    const requiredFields = [
+      "session_id",
+      "user_id",
+      "care_type",
+      "preferred_region",
+      "budget_min",
+      "budget_max",
+      "move_in_timeline",
+      "special_needs",
+      "family_contact_name",
+      "family_contact_phone",
+      "is_ready_for_match",
+      "summary_completed",
+      "additional_notes",
+    ]
+    return requiredFields.every(
+      (field) => profile[field] !== undefined && profile[field] !== null && profile[field] !== "",
+    )
+  }
+
+  // Handler for Get Summary button
+  const handleGetSummary = async () => {
+    if (!threadId || !chatSession?.id || isSummaryLoading) return
+    setIsSummaryLoading(true)
+    setSummaryStatus("Retrieving conversation data...")
+    setError(null)
+    try {
+      // Fetch user profile for first_name and last_name
+      const userProfile = await getProfile();
+      // 1. Send summary prompt to assistant
+      setSummaryStatus("Requesting summary from AI...")
+      const summaryPrompt = `Summarize the entire conversation so far and return the result as a single JSON object in the following format. Strictly follow the schema and do not add or omit any fields. Use the following type definition (TypeScript):\n\n'export type IntakeProfile = {\\n  id: string;\\n  created_at: string;\\n  session_id: string;\\n  user_id: string;\\n  first_name: string;\\n  last_name: string;\\n  care_type: string;\\n  preferred_region: string;\\n  budget_min: number;\\n  budget_max: number;\\n  move_in_timeline: string;\\n  special_needs: string;\\n  family_contact_name: string;\\n  family_contact_phone: string;\\n  is_ready_for_match: boolean;\\n  summary_completed: boolean;\\n  additional_notes: string;\\n}'\n\nReturn only a JSON code block, and set 'strict' to true. Do not include any explanation or extra text.`
+      await createMessage(summaryPrompt)
+      // 2. Trigger a new run
+      setSummaryStatus("Waiting for AI to process summary...")
+      const run = await createRun(threadId)
+      if (!run.intakeProfile) {
+        setError("AI did not return a valid summary. Please try again.")
+        setIsSummaryLoading(false)
+        setSummaryStatus(null)
+        return
+      }
+      setSummaryStatus("Validating summary data...")
+      // 3. Validate and save
+      const profile = run.intakeProfile
+      // Fill in id, created_at if missing
+      profile.created_at = profile.created_at || new Date().toISOString()
+      profile.session_id = chatSession.id
+      profile.user_id = chatSession.user_id
+      // Set first_name and last_name from AI or user profile
+      let userFirstName = "";
+      let userLastName = "";
+      if (userProfile && !("error" in userProfile)) {
+        userFirstName = (userProfile as import('@/types/user_profile').UserProfile).first_name;
+        userLastName = (userProfile as import('@/types/user_profile').UserProfile).last_name;
+      }
+      profile.first_name = (profile.first_name && profile.first_name.trim()) || userFirstName;
+      profile.last_name = (profile.last_name && profile.last_name.trim()) || userLastName;
+      // Validate
+      const ready = isIntakeProfileReady(profile)
+      profile.is_ready_for_match = ready
+      profile.summary_completed = true
+      // Save to intake_profiles
+      setSummaryStatus("Saving summary to database...")
+      const saveResult = await createIntakeProfile(profile)
+      if (saveResult.error) {
+        setError(saveResult.error)
+        setIsSummaryLoading(false)
+        setSummaryStatus(null)
+        return
+      }
+      // Update chat_sessions
+      setSummaryStatus("Updating session status...")
+      await updateChatSession(chatSession.id, { is_ready_for_match: ready })
+      setSummaryStatus("Summary saved successfully.")
+      setIntakeProfile(profile)
+      // Show success toast on the right side
+      toast({
+        title: "Information Summary Updated!",
+        description: "The information on the right has been updated with the latest summary.",
+      })
+      setTimeout(() => setSummaryStatus(null), 2000)
+    } catch (err: any) {
+      setError(err.message || "Failed to get summary.")
+    } finally {
+      setIsSummaryLoading(false)
+    }
+  }
+
+  // Open dialog and populate form
+  const handleEditClick = () => {
+    setEditForm(intakeProfile ? { ...intakeProfile } : null)
+    setEditDialogOpen(true)
+    setEditError(null)
+  }
+
+  // Handle form field changes
+  const handleEditChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    if (!editForm) return
+    const { name, value } = e.target
+    setEditForm({ ...editForm, [name]: value })
+  }
+
+  // Handle save
+  const handleEditSave = async () => {
+    if (!editForm || !editForm.id) return
+    setEditLoading(true)
+    setEditError(null)
+    try {
+      const result = await updateIntakeProfile(editForm.id, editForm)
+      if (result.error) {
+        setEditError(result.error)
+      } else {
+        setIntakeProfile(editForm)
+        setEditDialogOpen(false)
+        toast({ title: "Information Updated", description: "Your information summary has been updated." })
+      }
+    } catch (err: any) {
+      setEditError(err.message || "Failed to update information.")
+    } finally {
+      setEditLoading(false)
+    }
+  }
+
+  const handleSubmitToProviders = async () => {
+    if (!chatSession?.id) return;
+    try {
+      const notification = {
+        session_id: chatSession.id,
+        message: 'A user has submitted their information for provider matching.',
+        read: false,
+        created_at: new Date().toISOString(),
+      };
+      const result = await createAdminNotification(notification);
+      if (result.error) {
+        toast({ title: 'Error', description: result.error, variant: 'destructive' });
+      } else {
+        toast({ title: 'Submitted!', description: 'Your information has been sent to the admin for provider matching.' });
+      }
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message || 'Failed to submit to providers.', variant: 'destructive' });
+    }
+  };
 
   return (
     <AuthLayout>
@@ -343,8 +640,10 @@ export default function ChatPage() {
                       variant="outline"
                       size="sm"
                       className="border-[#9bc3a2] text-[#9bc3a2] hover:bg-[#9bc3a2]/10"
+                      onClick={handleGetSummary}
+                      disabled={isSummaryLoading}
                     >
-                      Get Summary
+                      {isSummaryLoading ? summaryStatus || "Processing..." : "Get Summary"}
                     </Button>
                   </div>
                 </div>
@@ -366,7 +665,17 @@ export default function ChatPage() {
                         <div
                           className={`${message.sender === "user" ? "bg-[#9bc3a2]/10" : "bg-[#d1eee4]"} p-3 rounded-lg ${message.sender === "user" ? "rounded-tr-none" : "rounded-tl-none"} max-w-[80%]`}
                         >
-                          <p className="text-sm whitespace-pre-wrap">{message.message}</p>
+                          {message.sender === "assistant" ? (
+                            <ReactMarkdown
+                              components={{
+                                p: ({ children }) => <p className="text-sm whitespace-pre-wrap">{children}</p>,
+                              }}
+                            >
+                              {message.message}
+                            </ReactMarkdown>
+                          ) : (
+                            <p className="text-sm whitespace-pre-wrap">{message.message}</p>
+                          )}
                           <span className="text-xs text-gray-500 mt-1 block">
                             {new Date(message.created_at).toLocaleTimeString([], {
                               hour: "2-digit",
@@ -417,6 +726,15 @@ export default function ChatPage() {
                       target.style.height = "auto"
                       target.style.height = Math.min(target.scrollHeight, 120) + "px"
                     }}
+                    onBlur={(e) => {
+                      // Prevent losing focus during message sending
+                      if (isSending) {
+                        e.preventDefault()
+                        setTimeout(() => {
+                          inputRef.current?.focus()
+                        }, 50)
+                      }
+                    }}
                   />
                   <Button
                     size="icon"
@@ -439,6 +757,16 @@ export default function ChatPage() {
               </CardHeader>
               <CardContent className="pb-3 overflow-y-auto flex-grow">
                 <div className="space-y-4">
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-2">First Name</h3>
+                    <p className="text-sm font-medium">{intakeProfile?.first_name || "N/A"}</p>
+                  </div>
+                  <Separator className="bg-[#bdd8c0]/30" />
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-2">Last Name</h3>
+                    <p className="text-sm font-medium">{intakeProfile?.last_name || "N/A"}</p>
+                  </div>
+                  <Separator className="bg-[#bdd8c0]/30" />
                   <div>
                     <h3 className="text-sm font-medium text-muted-foreground mb-2">Care Type</h3>
                     <p className="text-sm font-medium">{intakeProfile?.care_type || "N/A"}</p>
@@ -483,11 +811,15 @@ export default function ChatPage() {
                 </div>
               </CardContent>
               <CardFooter className="flex flex-col gap-2">
-                <Button className="w-full bg-[#9bc3a2] hover:bg-[#9bc3a2]/90">
+                <Button className="w-full bg-[#9bc3a2] hover:bg-[#9bc3a2]/90" onClick={handleSubmitToProviders}>
                   <Share2 className="mr-2 h-4 w-4" />
                   Submit to Providers
                 </Button>
-                <Button variant="outline" className="w-full border-[#9bc3a2] text-[#9bc3a2] hover:bg-[#9bc3a2]/10">
+                <Button
+                  variant="outline"
+                  className="w-full border-[#9bc3a2] text-[#9bc3a2] hover:bg-[#9bc3a2]/10"
+                  onClick={handleEditClick}
+                >
                   <Edit className="mr-2 h-4 w-4" />
                   Edit Information
                 </Button>
@@ -495,7 +827,187 @@ export default function ChatPage() {
             </Card>
           </div>
         </div>
+
+        {summaryStatus && <div className="text-xs text-[#9bc3a2] mt-2">{summaryStatus}</div>}
       </div>
+
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="sm:max-w-[500px] max-h-[80vh] overflow-y-auto flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-semibold text-[#4a7c59]">Edit Information Summary</DialogTitle>
+            <DialogDescription>
+              Update the information collected from your conversation. This will be used to match you with suitable providers.
+            </DialogDescription>
+          </DialogHeader>
+          {editForm && (
+            <form
+              className="space-y-5 flex-1 flex flex-col"
+              onSubmit={(e) => {
+                e.preventDefault()
+                handleEditSave()
+              }}
+              style={{ minHeight: 0 }}
+            >
+              <div className="space-y-4 flex-1 overflow-y-auto">
+                <div className="space-y-2">
+                  <Label htmlFor="first_name" className="text-sm font-medium">
+                    First Name
+                  </Label>
+                  <Input
+                    id="first_name"
+                    name="first_name"
+                    value={editForm.first_name || ""}
+                    onChange={handleEditChange}
+                    className="focus-visible:ring-[#9bc3a2]"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="last_name" className="text-sm font-medium">
+                    Last Name
+                  </Label>
+                  <Input
+                    id="last_name"
+                    name="last_name"
+                    value={editForm.last_name || ""}
+                    onChange={handleEditChange}
+                    className="focus-visible:ring-[#9bc3a2]"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="care_type" className="text-sm font-medium">
+                    Care Type
+                  </Label>
+                  <Input
+                    id="care_type"
+                    name="care_type"
+                    value={editForm.care_type || ""}
+                    onChange={handleEditChange}
+                    className="focus-visible:ring-[#9bc3a2]"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="preferred_region" className="text-sm font-medium">
+                    Location
+                  </Label>
+                  <Input
+                    id="preferred_region"
+                    name="preferred_region"
+                    value={editForm.preferred_region || ""}
+                    onChange={handleEditChange}
+                    className="focus-visible:ring-[#9bc3a2]"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="budget_min" className="text-sm font-medium">
+                      Budget Min ($)
+                    </Label>
+                    <Input
+                      id="budget_min"
+                      name="budget_min"
+                      type="number"
+                      value={editForm.budget_min || ""}
+                      onChange={handleEditChange}
+                      className="focus-visible:ring-[#9bc3a2]"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="budget_max" className="text-sm font-medium">
+                      Budget Max ($)
+                    </Label>
+                    <Input
+                      id="budget_max"
+                      name="budget_max"
+                      type="number"
+                      value={editForm.budget_max || ""}
+                      onChange={handleEditChange}
+                      className="focus-visible:ring-[#9bc3a2]"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="move_in_timeline" className="text-sm font-medium">
+                    Move-in Timeline
+                  </Label>
+                  <Input
+                    id="move_in_timeline"
+                    name="move_in_timeline"
+                    value={editForm.move_in_timeline || ""}
+                    onChange={handleEditChange}
+                    className="focus-visible:ring-[#9bc3a2]"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="family_contact_name" className="text-sm font-medium">
+                    Family Contact Name
+                  </Label>
+                  <Input
+                    id="family_contact_name"
+                    name="family_contact_name"
+                    value={editForm.family_contact_name || ""}
+                    onChange={handleEditChange}
+                    className="focus-visible:ring-[#9bc3a2]"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="family_contact_phone" className="text-sm font-medium">
+                    Family Contact Phone
+                  </Label>
+                  <Input
+                    id="family_contact_phone"
+                    name="family_contact_phone"
+                    value={editForm.family_contact_phone || ""}
+                    onChange={handleEditChange}
+                    className="focus-visible:ring-[#9bc3a2]"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="special_needs" className="text-sm font-medium">
+                    Special Needs
+                  </Label>
+                  <Input
+                    id="special_needs"
+                    name="special_needs"
+                    value={editForm.special_needs || ""}
+                    onChange={handleEditChange}
+                    className="focus-visible:ring-[#9bc3a2]"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="additional_notes" className="text-sm font-medium">
+                    Additional Notes
+                  </Label>
+                  <Textarea
+                    id="additional_notes"
+                    name="additional_notes"
+                    value={editForm.additional_notes || ""}
+                    onChange={handleEditChange}
+                    className="min-h-[80px] focus-visible:ring-[#9bc3a2]"
+                  />
+                </div>
+                {editError && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
+                    {editError}
+                  </div>
+                )}
+              </div>
+              <DialogFooter className="sticky bottom-0 bg-white pt-4 pb-2 z-10 flex gap-2 border-t mt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setEditDialogOpen(false)}
+                  className="border-gray-300"
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" className="bg-[#9bc3a2] hover:bg-[#9bc3a2]/90" disabled={editLoading}>
+                  {editLoading ? "Saving..." : "Save Changes"}
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </AuthLayout>
   )
 }

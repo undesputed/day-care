@@ -7,13 +7,17 @@ export async function getProfile(){
     const supabase = await createClient();
     const {data: {user}} = await supabase.auth.getUser();
 
+    console.log(user);
     if(!user){
         return {error: "User not found"};
     }
 
     const {data, error} = await supabase.from("user_profile").select("*").eq("user_id", user.id).single();
 
-    if(error){
+    if (error) {
+        if (error.code === 'PGRST116') {
+            return { error: "No profile found for this user." };
+        }
         console.error(error);
         return {error: error.message};
     }

@@ -1,16 +1,43 @@
+"use client";
+
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { redirect } from "next/navigation";
-import {createClient} from "@/utils/supabase/server";
-import {signIn} from "@/actions/auth/actions";
+import { useRouter } from "next/navigation";
+import { signIn } from "@/actions/auth/actions";
+import { ErrorDialog } from "@/components/auth/error-dialog";
+import { useState } from "react";
 
-export default async function LoginPage() {
-  const supabase = createClient();
-  const {data} = await (await supabase).auth.getUser();
+export default function LoginPage() {
+  const router = useRouter();
+  const [isErrorDialogOpen, setIsErrorDialogOpen] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  const handleSubmit = async (formData: FormData) => {
+    try {
+      await signIn(formData);
+    } catch (error) {
+      // Handle specific error messages
+      const errorMsg = error instanceof Error ? error.message : "An unexpected error occurred";
+      let displayMessage = "An error occurred during sign in.";
+      
+      if (errorMsg.includes("Invalid login credentials")) {
+        displayMessage = "Invalid email or password. Please try again.";
+      } else if (errorMsg.includes("Email not confirmed")) {
+        displayMessage = "Please confirm your email address before signing in.";
+      } else if (errorMsg.includes("User not found")) {
+        displayMessage = "No account found with this email address.";
+      } else if (errorMsg.includes("Too many requests")) {
+        displayMessage = "Too many login attempts. Please try again later.";
+      }
+      
+      setErrorMessage(displayMessage);
+      setIsErrorDialogOpen(true);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#c2dacc]/30 flex flex-col">
@@ -34,10 +61,10 @@ export default async function LoginPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <form action={signIn}>
+            <form action={handleSubmit}>
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
-                <Input id="email" name="email" type="email" placeholder="name@example.com" className="focus-visible:ring-[#9bc3a2]" />
+                <Input id="email" name="email" type="email" placeholder="name@example.com" className="focus-visible:ring-[#9bc3a2]" required />
               </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
@@ -46,7 +73,7 @@ export default async function LoginPage() {
                     Forgot password?
                   </Link>
                 </div>
-                <Input id="password" name="password" type="password" placeholder="••••••••" className="focus-visible:ring-[#9bc3a2]" />
+                <Input id="password" name="password" type="password" placeholder="••••••••" className="focus-visible:ring-[#9bc3a2]" required />
               </div>
               <div className="flex items-center space-x-2">
                 <Checkbox id="remember" className="border-[#9bc3a2] data-[state=checked]:bg-[#9bc3a2]" />
@@ -122,6 +149,12 @@ export default async function LoginPage() {
       <footer className="py-6 text-center text-sm text-gray-500">
         <p>&copy; {new Date().getFullYear()} SeniorCare Central. All rights reserved.</p>
       </footer>
+
+      <ErrorDialog
+        isOpen={isErrorDialogOpen}
+        onClose={() => setIsErrorDialogOpen(false)}
+        error={errorMessage}
+      />
     </div>
-  )
+  );
 }

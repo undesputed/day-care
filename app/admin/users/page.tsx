@@ -1,3 +1,5 @@
+"use client"
+
 import AdminLayout from "@/components/admin/layout/admin-layout"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -15,72 +17,68 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Search, Filter, MoreHorizontal, Download, UserPlus, UserCog } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { useEffect, useState } from "react"
+import { ChevronLeft, ChevronRight } from "lucide-react"
+import { getUserList } from "@/actions/admin/users/action"
+import { UserProfile } from "@/types/user_profile"
 
-// Mock data for users
-const users = [
-  {
-    id: 1,
-    name: "Robert Johnson",
-    email: "robert.j@example.com",
-    role: "Customer",
-    status: "Active",
-    registrationDate: "May 12, 2025",
-    lastLogin: "May 12, 2025",
-    avatar: "/abstract-rj.png",
-  },
-  {
-    id: 2,
-    name: "Maria Garcia",
-    email: "maria.g@example.com",
-    role: "Customer",
-    status: "Active",
-    registrationDate: "May 11, 2025",
-    lastLogin: "May 12, 2025",
-    avatar: "/abstract-geometric-mg.png",
-  },
-  {
-    id: 3,
-    name: "David Lee",
-    email: "david.l@example.com",
-    role: "Provider Admin",
-    status: "Active",
-    registrationDate: "May 10, 2025",
-    lastLogin: "May 11, 2025",
-    avatar: "/abstract-dl.png",
-  },
-  {
-    id: 4,
-    name: "Sarah Wilson",
-    email: "sarah.w@example.com",
-    role: "Customer",
-    status: "Inactive",
-    registrationDate: "May 9, 2025",
-    lastLogin: "May 10, 2025",
-    avatar: "/stylized-sw.png",
-  },
-  {
-    id: 5,
-    name: "Michael Brown",
-    email: "michael.b@example.com",
-    role: "Provider Staff",
-    status: "Active",
-    registrationDate: "May 8, 2025",
-    lastLogin: "May 12, 2025",
-    avatar: "/monogram-mb.png",
-  },
-  {
-    id: 6,
-    name: "Jennifer Davis",
-    email: "jennifer.d@example.com",
-    role: "Customer",
-    status: "Pending",
-    registrationDate: "May 7, 2025",
-    lastLogin: "Never",
-    avatar: "/stylized-jd-initials.png",
-  },
-]
+// Add pagination state after the users mock data
+const ITEMS_PER_PAGE = 10
 
 export default function UsersPage() {
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(ITEMS_PER_PAGE)
+  const [users, setUsers] = useState<any[]>([])
+
+  useEffect(() => {
+    fetchUsers("all")
+  }, [])
+
+  const fetchUsers = async (role: string) => {
+    const response = await getUserList("all", 1, 10, role)
+    if (response.data) {
+      setUsers(response.data)
+    }
+  }
+
+  // Calculate pagination for filtered users
+  const getFilteredUsers = (tab: string) => {
+    switch (tab) {
+      case "all":
+        return users
+      case "user":
+        return users.filter((user) => user.role === "Customer")
+      case "provider":
+        return users.filter((user) => user.role.includes("Provider"))
+      case "admin":
+        return users.filter((user) => user.role === "admin")
+      default:
+        return users
+    }
+  }
+
+  const getPaginatedUsers = (filteredUsers: typeof users) => {
+    const startIndex = (currentPage - 1) * itemsPerPage
+    const endIndex = startIndex + itemsPerPage
+    return filteredUsers.slice(startIndex, endIndex)
+  }
+
+  const getTotalPages = (totalItems: number) => Math.ceil(totalItems / itemsPerPage)
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+  }
+
+  const handleItemsPerPageChange = (value: string) => {
+    setItemsPerPage(Number.parseInt(value))
+    setCurrentPage(1) // Reset to first page when changing items per page
+  }
+
+  // Reset to page 1 when switching tabs
+  const handleTabChange = () => {
+    setCurrentPage(1)
+  }
+
   return (
     <AdminLayout>
       <div className="flex flex-col gap-6">
@@ -160,22 +158,32 @@ export default function UsersPage() {
           <CardContent>
             <Tabs defaultValue="all" className="w-full">
               <TabsList className="bg-[#d1eee4]">
-                <TabsTrigger value="all" className="data-[state=active]:bg-[#9bc3a2] data-[state=active]:text-white">
+                <TabsTrigger
+                  value="all"
+                  className="data-[state=active]:bg-[#9bc3a2] data-[state=active]:text-white"
+                  onClick={handleTabChange}
+                >
                   All Users
                 </TabsTrigger>
                 <TabsTrigger
                   value="customers"
                   className="data-[state=active]:bg-[#9bc3a2] data-[state=active]:text-white"
+                  onClick={handleTabChange}
                 >
                   Customers
                 </TabsTrigger>
                 <TabsTrigger
                   value="providers"
                   className="data-[state=active]:bg-[#9bc3a2] data-[state=active]:text-white"
+                  onClick={handleTabChange}
                 >
                   Providers
                 </TabsTrigger>
-                <TabsTrigger value="admins" className="data-[state=active]:bg-[#9bc3a2] data-[state=active]:text-white">
+                <TabsTrigger
+                  value="admins"
+                  className="data-[state=active]:bg-[#9bc3a2] data-[state=active]:text-white"
+                  onClick={handleTabChange}
+                >
                   Admins
                 </TabsTrigger>
               </TabsList>
@@ -201,70 +209,151 @@ export default function UsersPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {users.map((user) => (
-                        <TableRow key={user.id}>
-                          <TableCell>
-                            <div className="flex items-center gap-3">
-                              <Avatar className="h-8 w-8">
-                                <AvatarImage src={user.avatar || "/placeholder.svg"} alt={user.name} />
-                                <AvatarFallback className="bg-[#9bc3a2] text-white">
-                                  {user.name
-                                    .split(" ")
-                                    .map((n) => n[0])
-                                    .join("")}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <div className="font-medium">{user.name}</div>
-                                <div className="text-xs text-muted-foreground">{user.email}</div>
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell>{user.role}</TableCell>
-                          <TableCell>
-                            <Badge
-                              className={
-                                user.status === "Active"
-                                  ? "bg-green-100 text-green-800 hover:bg-green-100"
-                                  : user.status === "Pending"
-                                    ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
-                                    : "bg-red-100 text-red-800 hover:bg-red-100"
-                              }
-                            >
-                              {user.status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>{user.registrationDate}</TableCell>
-                          <TableCell>{user.lastLogin}</TableCell>
-                          <TableCell className="text-right">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" className="h-8 w-8 p-0">
-                                  <span className="sr-only">Open menu</span>
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                <DropdownMenuItem>View profile</DropdownMenuItem>
-                                <DropdownMenuItem>
-                                  <UserCog className="mr-2 h-4 w-4" />
-                                  Edit user
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem>Reset password</DropdownMenuItem>
-                                {user.status === "Active" ? (
-                                  <DropdownMenuItem className="text-red-600">Deactivate account</DropdownMenuItem>
-                                ) : (
-                                  <DropdownMenuItem className="text-green-600">Activate account</DropdownMenuItem>
-                                )}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      {(() => {
+                        const filteredUsers = getFilteredUsers("all")
+                        const paginatedUsers = getPaginatedUsers(filteredUsers)
+                        const totalPages = getTotalPages(filteredUsers.length)
+
+                        return (
+                          <>
+                            {paginatedUsers.map((user) => (
+                              <TableRow key={user.id}>
+                                <TableCell>
+                                  <div className="flex items-center gap-3">
+                                    <Avatar className="h-8 w-8">
+                                      <AvatarImage src={user.avatar || "/placeholder.svg"} alt={user.name} />
+                                      <AvatarFallback className="bg-[#9bc3a2] text-white">
+                                        {user.name
+                                          .split(" ")
+                                          .map((n: string) => n[0])
+                                          .join("")}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <div>
+                                      <div className="font-medium">{user.name}</div>
+                                      <div className="text-xs text-muted-foreground">{user.email}</div>
+                                    </div>
+                                  </div>
+                                </TableCell>
+                                <TableCell>{user.role}</TableCell>
+                                <TableCell>
+                                  <Badge
+                                    className={
+                                      user.status === "Active"
+                                        ? "bg-green-100 text-green-800 hover:bg-green-100"
+                                        : user.status === "Pending"
+                                          ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
+                                          : "bg-red-100 text-red-800 hover:bg-red-100"
+                                    }
+                                  >
+                                    {user.status}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>{user.registrationDate}</TableCell>
+                                <TableCell>{user.lastLogin}</TableCell>
+                                <TableCell className="text-right">
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button variant="ghost" className="h-8 w-8 p-0">
+                                        <span className="sr-only">Open menu</span>
+                                        <MoreHorizontal className="h-4 w-4" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                      <DropdownMenuItem>View profile</DropdownMenuItem>
+                                      <DropdownMenuItem>
+                                        <UserCog className="mr-2 h-4 w-4" />
+                                        Edit user
+                                      </DropdownMenuItem>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem>Reset password</DropdownMenuItem>
+                                      {user.status === "Active" ? (
+                                        <DropdownMenuItem className="text-red-600">Deactivate account</DropdownMenuItem>
+                                      ) : (
+                                        <DropdownMenuItem className="text-green-600">Activate account</DropdownMenuItem>
+                                      )}
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </>
+                        )
+                      })()}
                     </TableBody>
                   </Table>
+
+                  {/* Pagination Controls */}
+                  {(() => {
+                    const filteredUsers = getFilteredUsers("all")
+                    const totalPages = getTotalPages(filteredUsers.length)
+                    const startIndex = (currentPage - 1) * itemsPerPage + 1
+                    const endIndex = Math.min(currentPage * itemsPerPage, filteredUsers.length)
+
+                    return (
+                      <div className="flex items-center justify-between px-4 py-3 border-t border-[#c2dacc]">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-muted-foreground">Show</span>
+                          <select
+                            value={itemsPerPage}
+                            onChange={(e) => handleItemsPerPageChange(e.target.value)}
+                            className="border border-[#c2dacc] rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-[#9bc3a2]"
+                          >
+                            <option value="5">5</option>
+                            <option value="10">10</option>
+                            <option value="25">25</option>
+                            <option value="50">50</option>
+                          </select>
+                          <span className="text-sm text-muted-foreground">per page</span>
+                        </div>
+
+                        <div className="text-sm text-muted-foreground">
+                          Showing {startIndex} to {endIndex} of {filteredUsers.length} users
+                        </div>
+
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handlePageChange(currentPage - 1)}
+                            disabled={currentPage === 1}
+                            className="border-[#c2dacc] hover:bg-[#9bc3a2]/10"
+                          >
+                            <ChevronLeft className="h-4 w-4" />
+                            Previous
+                          </Button>
+
+                          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                            <Button
+                              key={page}
+                              variant={currentPage === page ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => handlePageChange(page)}
+                              className={
+                                currentPage === page
+                                  ? "bg-[#9bc3a2] hover:bg-[#9bc3a2]/90"
+                                  : "border-[#c2dacc] hover:bg-[#9bc3a2]/10"
+                              }
+                            >
+                              {page}
+                            </Button>
+                          ))}
+
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handlePageChange(currentPage + 1)}
+                            disabled={currentPage === totalPages}
+                            className="border-[#c2dacc] hover:bg-[#9bc3a2]/10"
+                          >
+                            Next
+                            <ChevronRight className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    )
+                  })()}
                 </div>
               </TabsContent>
 
@@ -282,72 +371,151 @@ export default function UsersPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {users
-                        .filter((user) => user.role === "Customer")
-                        .map((user) => (
-                          <TableRow key={user.id}>
-                            <TableCell>
-                              <div className="flex items-center gap-3">
-                                <Avatar className="h-8 w-8">
-                                  <AvatarImage src={user.avatar || "/placeholder.svg"} alt={user.name} />
-                                  <AvatarFallback className="bg-[#9bc3a2] text-white">
-                                    {user.name
-                                      .split(" ")
-                                      .map((n) => n[0])
-                                      .join("")}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div>
-                                  <div className="font-medium">{user.name}</div>
-                                  <div className="text-xs text-muted-foreground">{user.email}</div>
-                                </div>
-                              </div>
-                            </TableCell>
-                            <TableCell>{user.role}</TableCell>
-                            <TableCell>
-                              <Badge
-                                className={
-                                  user.status === "Active"
-                                    ? "bg-green-100 text-green-800 hover:bg-green-100"
-                                    : user.status === "Pending"
-                                      ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
-                                      : "bg-red-100 text-red-800 hover:bg-red-100"
-                                }
-                              >
-                                {user.status}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>{user.registrationDate}</TableCell>
-                            <TableCell>{user.lastLogin}</TableCell>
-                            <TableCell className="text-right">
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" className="h-8 w-8 p-0">
-                                    <span className="sr-only">Open menu</span>
-                                    <MoreHorizontal className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                  <DropdownMenuItem>View profile</DropdownMenuItem>
-                                  <DropdownMenuItem>
-                                    <UserCog className="mr-2 h-4 w-4" />
-                                    Edit user
-                                  </DropdownMenuItem>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem>Reset password</DropdownMenuItem>
-                                  {user.status === "Active" ? (
-                                    <DropdownMenuItem className="text-red-600">Deactivate account</DropdownMenuItem>
-                                  ) : (
-                                    <DropdownMenuItem className="text-green-600">Activate account</DropdownMenuItem>
-                                  )}
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </TableCell>
-                          </TableRow>
-                        ))}
+                      {(() => {
+                        const filteredUsers = getFilteredUsers("customers")
+                        const paginatedUsers = getPaginatedUsers(filteredUsers)
+                        const totalPages = getTotalPages(filteredUsers.length)
+
+                        return (
+                          <>
+                            {paginatedUsers.map((user) => (
+                              <TableRow key={user.id}>
+                                <TableCell>
+                                  <div className="flex items-center gap-3">
+                                    <Avatar className="h-8 w-8">
+                                      <AvatarImage src={user.avatar || "/placeholder.svg"} alt={user.name} />
+                                      <AvatarFallback className="bg-[#9bc3a2] text-white">
+                                        {user.name
+                                          .split(" ")
+                                          .map((n: string) => n[0])
+                                          .join("")}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <div>
+                                      <div className="font-medium">{user.name}</div>
+                                      <div className="text-xs text-muted-foreground">{user.email}</div>
+                                    </div>
+                                  </div>
+                                </TableCell>
+                                <TableCell>{user.role}</TableCell>
+                                <TableCell>
+                                  <Badge
+                                    className={
+                                      user.status === "Active"
+                                        ? "bg-green-100 text-green-800 hover:bg-green-100"
+                                        : user.status === "Pending"
+                                          ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
+                                          : "bg-red-100 text-red-800 hover:bg-red-100"
+                                    }
+                                  >
+                                    {user.status}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>{user.registrationDate}</TableCell>
+                                <TableCell>{user.lastLogin}</TableCell>
+                                <TableCell className="text-right">
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button variant="ghost" className="h-8 w-8 p-0">
+                                        <span className="sr-only">Open menu</span>
+                                        <MoreHorizontal className="h-4 w-4" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                      <DropdownMenuItem>View profile</DropdownMenuItem>
+                                      <DropdownMenuItem>
+                                        <UserCog className="mr-2 h-4 w-4" />
+                                        Edit user
+                                      </DropdownMenuItem>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem>Reset password</DropdownMenuItem>
+                                      {user.status === "Active" ? (
+                                        <DropdownMenuItem className="text-red-600">Deactivate account</DropdownMenuItem>
+                                      ) : (
+                                        <DropdownMenuItem className="text-green-600">Activate account</DropdownMenuItem>
+                                      )}
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </>
+                        )
+                      })()}
                     </TableBody>
                   </Table>
+
+                  {/* Pagination Controls */}
+                  {(() => {
+                    const filteredUsers = getFilteredUsers("customers")
+                    const totalPages = getTotalPages(filteredUsers.length)
+                    const startIndex = (currentPage - 1) * itemsPerPage + 1
+                    const endIndex = Math.min(currentPage * itemsPerPage, filteredUsers.length)
+
+                    return (
+                      <div className="flex items-center justify-between px-4 py-3 border-t border-[#c2dacc]">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-muted-foreground">Show</span>
+                          <select
+                            value={itemsPerPage}
+                            onChange={(e) => handleItemsPerPageChange(e.target.value)}
+                            className="border border-[#c2dacc] rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-[#9bc3a2]"
+                          >
+                            <option value="5">5</option>
+                            <option value="10">10</option>
+                            <option value="25">25</option>
+                            <option value="50">50</option>
+                          </select>
+                          <span className="text-sm text-muted-foreground">per page</span>
+                        </div>
+
+                        <div className="text-sm text-muted-foreground">
+                          Showing {startIndex} to {endIndex} of {filteredUsers.length} users
+                        </div>
+
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handlePageChange(currentPage - 1)}
+                            disabled={currentPage === 1}
+                            className="border-[#c2dacc] hover:bg-[#9bc3a2]/10"
+                          >
+                            <ChevronLeft className="h-4 w-4" />
+                            Previous
+                          </Button>
+
+                          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                            <Button
+                              key={page}
+                              variant={currentPage === page ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => handlePageChange(page)}
+                              className={
+                                currentPage === page
+                                  ? "bg-[#9bc3a2] hover:bg-[#9bc3a2]/90"
+                                  : "border-[#c2dacc] hover:bg-[#9bc3a2]/10"
+                              }
+                            >
+                              {page}
+                            </Button>
+                          ))}
+
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handlePageChange(currentPage + 1)}
+                            disabled={currentPage === totalPages}
+                            className="border-[#c2dacc] hover:bg-[#9bc3a2]/10"
+                          >
+                            Next
+                            <ChevronRight className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    )
+                  })()}
                 </div>
               </TabsContent>
 
@@ -366,73 +534,152 @@ export default function UsersPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {users
-                        .filter((user) => user.role.includes("Provider"))
-                        .map((user) => (
-                          <TableRow key={user.id}>
-                            <TableCell>
-                              <div className="flex items-center gap-3">
-                                <Avatar className="h-8 w-8">
-                                  <AvatarImage src={user.avatar || "/placeholder.svg"} alt={user.name} />
-                                  <AvatarFallback className="bg-[#9bc3a2] text-white">
-                                    {user.name
-                                      .split(" ")
-                                      .map((n) => n[0])
-                                      .join("")}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div>
-                                  <div className="font-medium">{user.name}</div>
-                                  <div className="text-xs text-muted-foreground">{user.email}</div>
-                                </div>
-                              </div>
-                            </TableCell>
-                            <TableCell>{user.role}</TableCell>
-                            <TableCell>
-                              <Badge
-                                className={
-                                  user.status === "Active"
-                                    ? "bg-green-100 text-green-800 hover:bg-green-100"
-                                    : user.status === "Pending"
-                                      ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
-                                      : "bg-red-100 text-red-800 hover:bg-red-100"
-                                }
-                              >
-                                {user.status}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>{user.registrationDate}</TableCell>
-                            <TableCell>{user.lastLogin}</TableCell>
-                            <TableCell className="text-right">
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" className="h-8 w-8 p-0">
-                                    <span className="sr-only">Open menu</span>
-                                    <MoreHorizontal className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                  <DropdownMenuItem>View profile</DropdownMenuItem>
-                                  <DropdownMenuItem>
-                                    <UserCog className="mr-2 h-4 w-4" />
-                                    Edit user
-                                  </DropdownMenuItem>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem>View provider</DropdownMenuItem>
-                                  <DropdownMenuItem>Reset password</DropdownMenuItem>
-                                  {user.status === "Active" ? (
-                                    <DropdownMenuItem className="text-red-600">Deactivate account</DropdownMenuItem>
-                                  ) : (
-                                    <DropdownMenuItem className="text-green-600">Activate account</DropdownMenuItem>
-                                  )}
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </TableCell>
-                          </TableRow>
-                        ))}
+                      {(() => {
+                        const filteredUsers = getFilteredUsers("providers")
+                        const paginatedUsers = getPaginatedUsers(filteredUsers)
+                        const totalPages = getTotalPages(filteredUsers.length)
+
+                        return (
+                          <>
+                            {paginatedUsers.map((user) => (
+                              <TableRow key={user.id}>
+                                <TableCell>
+                                  <div className="flex items-center gap-3">
+                                    <Avatar className="h-8 w-8">
+                                      <AvatarImage src={user.avatar || "/placeholder.svg"} alt={user.name} />
+                                      <AvatarFallback className="bg-[#9bc3a2] text-white">
+                                        {user.name
+                                          .split(" ")
+                                          .map((n: string) => n[0])
+                                          .join("")}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <div>
+                                      <div className="font-medium">{user.name}</div>
+                                      <div className="text-xs text-muted-foreground">{user.email}</div>
+                                    </div>
+                                  </div>
+                                </TableCell>
+                                <TableCell>{user.role}</TableCell>
+                                <TableCell>
+                                  <Badge
+                                    className={
+                                      user.status === "Active"
+                                        ? "bg-green-100 text-green-800 hover:bg-green-100"
+                                        : user.status === "Pending"
+                                          ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
+                                          : "bg-red-100 text-red-800 hover:bg-red-100"
+                                    }
+                                  >
+                                    {user.status}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>{user.registrationDate}</TableCell>
+                                <TableCell>{user.lastLogin}</TableCell>
+                                <TableCell className="text-right">
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button variant="ghost" className="h-8 w-8 p-0">
+                                        <span className="sr-only">Open menu</span>
+                                        <MoreHorizontal className="h-4 w-4" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                      <DropdownMenuItem>View profile</DropdownMenuItem>
+                                      <DropdownMenuItem>
+                                        <UserCog className="mr-2 h-4 w-4" />
+                                        Edit user
+                                      </DropdownMenuItem>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem>View provider</DropdownMenuItem>
+                                      <DropdownMenuItem>Reset password</DropdownMenuItem>
+                                      {user.status === "Active" ? (
+                                        <DropdownMenuItem className="text-red-600">Deactivate account</DropdownMenuItem>
+                                      ) : (
+                                        <DropdownMenuItem className="text-green-600">Activate account</DropdownMenuItem>
+                                      )}
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </>
+                        )
+                      })()}
                     </TableBody>
                   </Table>
+
+                  {/* Pagination Controls */}
+                  {(() => {
+                    const filteredUsers = getFilteredUsers("providers")
+                    const totalPages = getTotalPages(filteredUsers.length)
+                    const startIndex = (currentPage - 1) * itemsPerPage + 1
+                    const endIndex = Math.min(currentPage * itemsPerPage, filteredUsers.length)
+
+                    return (
+                      <div className="flex items-center justify-between px-4 py-3 border-t border-[#c2dacc]">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-muted-foreground">Show</span>
+                          <select
+                            value={itemsPerPage}
+                            onChange={(e) => handleItemsPerPageChange(e.target.value)}
+                            className="border border-[#c2dacc] rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-[#9bc3a2]"
+                          >
+                            <option value="5">5</option>
+                            <option value="10">10</option>
+                            <option value="25">25</option>
+                            <option value="50">50</option>
+                          </select>
+                          <span className="text-sm text-muted-foreground">per page</span>
+                        </div>
+
+                        <div className="text-sm text-muted-foreground">
+                          Showing {startIndex} to {endIndex} of {filteredUsers.length} users
+                        </div>
+
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handlePageChange(currentPage - 1)}
+                            disabled={currentPage === 1}
+                            className="border-[#c2dacc] hover:bg-[#9bc3a2]/10"
+                          >
+                            <ChevronLeft className="h-4 w-4" />
+                            Previous
+                          </Button>
+
+                          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                            <Button
+                              key={page}
+                              variant={currentPage === page ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => handlePageChange(page)}
+                              className={
+                                currentPage === page
+                                  ? "bg-[#9bc3a2] hover:bg-[#9bc3a2]/90"
+                                  : "border-[#c2dacc] hover:bg-[#9bc3a2]/10"
+                              }
+                            >
+                              {page}
+                            </Button>
+                          ))}
+
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handlePageChange(currentPage + 1)}
+                            disabled={currentPage === totalPages}
+                            className="border-[#c2dacc] hover:bg-[#9bc3a2]/10"
+                          >
+                            Next
+                            <ChevronRight className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    )
+                  })()}
                 </div>
               </TabsContent>
 
@@ -451,48 +698,146 @@ export default function UsersPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      <TableRow>
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <Avatar className="h-8 w-8">
-                              <AvatarImage src="/admin-avatar.png" alt="Admin Jane" />
-                              <AvatarFallback className="bg-[#9bc3a2] text-white">JD</AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <div className="font-medium">Admin Jane Dela Cruz</div>
-                              <div className="text-xs text-muted-foreground">admin@seniorcarecentral.com</div>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>Super Admin</TableCell>
-                        <TableCell>
-                          <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Active</Badge>
-                        </TableCell>
-                        <TableCell>Jan 15, 2025</TableCell>
-                        <TableCell>May 12, 2025</TableCell>
-                        <TableCell className="text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" className="h-8 w-8 p-0">
-                                <span className="sr-only">Open menu</span>
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                              <DropdownMenuItem>View profile</DropdownMenuItem>
-                              <DropdownMenuItem>
-                                <UserCog className="mr-2 h-4 w-4" />
-                                Edit user
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem>Reset password</DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
+                      {(() => {
+                        const filteredUsers = getFilteredUsers("admins")
+                        const paginatedUsers = getPaginatedUsers(filteredUsers)
+                        const totalPages = getTotalPages(filteredUsers.length)
+
+                        return (
+                          <>
+                            {paginatedUsers.map((user) => (
+                              <TableRow key={user.id}>
+                                <TableCell>
+                                  <div className="flex items-center gap-3">
+                                    <Avatar className="h-8 w-8">
+                                      <AvatarImage src={user.avatar || "/placeholder.svg"} alt={user.name} />
+                                      <AvatarFallback className="bg-[#9bc3a2] text-white">
+                                        {user.name
+                                          .split(" ")
+                                          .map((n: string) => n[0])
+                                          .join("")}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <div>
+                                      <div className="font-medium">{user.name}</div>
+                                      <div className="text-xs text-muted-foreground">{user.email}</div>
+                                    </div>
+                                  </div>
+                                </TableCell>
+                                <TableCell>{user.role}</TableCell>
+                                <TableCell>
+                                  <Badge
+                                    className={
+                                      user.status === "Active"
+                                        ? "bg-green-100 text-green-800 hover:bg-green-100"
+                                        : user.status === "Pending"
+                                          ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
+                                          : "bg-red-100 text-red-800 hover:bg-red-100"
+                                    }
+                                  >
+                                    {user.status}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>{user.registrationDate}</TableCell>
+                                <TableCell>{user.lastLogin}</TableCell>
+                                <TableCell className="text-right">
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button variant="ghost" className="h-8 w-8 p-0">
+                                        <span className="sr-only">Open menu</span>
+                                        <MoreHorizontal className="h-4 w-4" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                      <DropdownMenuItem>View profile</DropdownMenuItem>
+                                      <DropdownMenuItem>
+                                        <UserCog className="mr-2 h-4 w-4" />
+                                        Edit user
+                                      </DropdownMenuItem>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem>Reset password</DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </>
+                        )
+                      })()}
                     </TableBody>
                   </Table>
+
+                  {/* Pagination Controls */}
+                  {(() => {
+                    const filteredUsers = getFilteredUsers("admins")
+                    const totalPages = getTotalPages(filteredUsers.length)
+                    const startIndex = (currentPage - 1) * itemsPerPage + 1
+                    const endIndex = Math.min(currentPage * itemsPerPage, filteredUsers.length)
+
+                    return (
+                      <div className="flex items-center justify-between px-4 py-3 border-t border-[#c2dacc]">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-muted-foreground">Show</span>
+                          <select
+                            value={itemsPerPage}
+                            onChange={(e) => handleItemsPerPageChange(e.target.value)}
+                            className="border border-[#c2dacc] rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-[#9bc3a2]"
+                          >
+                            <option value="5">5</option>
+                            <option value="10">10</option>
+                            <option value="25">25</option>
+                            <option value="50">50</option>
+                          </select>
+                          <span className="text-sm text-muted-foreground">per page</span>
+                        </div>
+
+                        <div className="text-sm text-muted-foreground">
+                          Showing {startIndex} to {endIndex} of {filteredUsers.length} users
+                        </div>
+
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handlePageChange(currentPage - 1)}
+                            disabled={currentPage === 1}
+                            className="border-[#c2dacc] hover:bg-[#9bc3a2]/10"
+                          >
+                            <ChevronLeft className="h-4 w-4" />
+                            Previous
+                          </Button>
+
+                          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                            <Button
+                              key={page}
+                              variant={currentPage === page ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => handlePageChange(page)}
+                              className={
+                                currentPage === page
+                                  ? "bg-[#9bc3a2] hover:bg-[#9bc3a2]/90"
+                                  : "border-[#c2dacc] hover:bg-[#9bc3a2]/10"
+                              }
+                            >
+                              {page}
+                            </Button>
+                          ))}
+
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handlePageChange(currentPage + 1)}
+                            disabled={currentPage === totalPages}
+                            className="border-[#c2dacc] hover:bg-[#9bc3a2]/10"
+                          >
+                            Next
+                            <ChevronRight className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    )
+                  })()}
                 </div>
               </TabsContent>
             </Tabs>

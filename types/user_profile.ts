@@ -14,4 +14,5 @@ export type UserProfile = {
     notification_settings_json: string | null;
     active: boolean;
     avatar: string | null;
+    created_at: string;
 }

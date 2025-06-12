@@ -3,6 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 
 const PUBLIC_PATHS = [
   "/",
+  "/admin/login",
   "/login",
   "/register",
   "/forgot-password",
@@ -47,6 +48,36 @@ export default async function middleware(request: NextRequest) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("redirect", pathname);
     return NextResponse.redirect(loginUrl);
+  }
+
+  // Get user role from metadata
+  const { data: profile } = await supabase
+    .from('user_profile')
+    .select('user_role')
+    .eq('user_id', user.id)
+    .single();
+
+  const userRole = profile?.user_role;
+
+  // Role-based access control
+  if (pathname.startsWith('/admin')) {
+    if (userRole !== 'admin') {
+      // Redirect non-admin users trying to access admin routes
+      return NextResponse.redirect(new URL('/', request.url));
+    }
+  } else if (pathname.startsWith('/provider')) {
+    if (userRole !== 'provider') {
+      // Redirect non-provider users trying to access provider routes
+      return NextResponse.redirect(new URL('/', request.url));
+    }
+  } else if (pathname === '/' || pathname.startsWith('/dashboard')) {
+    if (userRole === 'admin') {
+      // Redirect admin users trying to access user dashboard
+      return NextResponse.redirect(new URL('/admin', request.url));
+    } else if (userRole === 'provider') {
+      // Redirect provider users trying to access user dashboard
+      return NextResponse.redirect(new URL('/provider', request.url));
+    }
   }
 
   return NextResponse.next();

@@ -4,33 +4,6 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 
-
-export async function signUp(formData: FormData){
-    const supabase = await createClient();
-    const firstName = formData.get("fName") as string;
-    const lastName = formData.get("lName") as string;
-
-    const credentials = {
-        displayName: `${firstName} ${lastName}`,
-        email: (formData.get("email") as string).trim(),
-        password: formData.get("password") as string,
-    }
-
-    const {data, error} = await supabase.auth.signUp(credentials);
-    if (error) {
-        console.error(error);
-        throw new Error(error.message);
-    }
-
-    if (!data.user) {
-        console.error("User not returned after sign-up.");
-        throw new Error("User not returned after sign-up.");
-    }
-
-    revalidatePath("/", "layout");
-    redirect("/login");
-}
-
 export async function signIn(formData: FormData){
     const supabase = await createClient();    
     const email = formData.get("email") as string;
@@ -56,12 +29,14 @@ export async function signIn(formData: FormData){
             .from("user_profile")
             .select("*")
             .eq("user_id", user.id)
+            .eq("user_role", "admin")
             .single();
+        console.log(profile);
         if (profileError && profileError.code === 'PGRST116') {
             // No profile found, create one with default values
             const userProfile = {
                 user_id: user.id,
-                user_role: "user",
+                user_role: "admin",
                 avatar: null,
                 first_name: "",
                 last_name: "",
@@ -83,7 +58,7 @@ export async function signIn(formData: FormData){
     }
 
     revalidatePath("/", "layout");
-    redirect("/dashboard");
+    redirect("/admin");
 }
 
 export async function signOut(){

@@ -75,7 +75,7 @@ export default function LoginPage() {
                 </div>
                 <Input id="password" name="password" type="password" placeholder="••••••••" className="focus-visible:ring-[#9bc3a2]" required />
               </div>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 my-4">
                 <Checkbox id="remember" className="border-[#9bc3a2] data-[state=checked]:bg-[#9bc3a2]" />
                 <Label
                   htmlFor="remember"
@@ -88,7 +88,7 @@ export default function LoginPage() {
             </form>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
-            <div className="relative my-2">
+            {/* <div className="relative my-2">
               <div className="absolute inset-0 flex items-center">
                 <span className="w-full border-t border-gray-300" />
               </div>
@@ -134,7 +134,7 @@ export default function LoginPage() {
                 </svg>
                 Facebook
               </Button>
-            </div>
+            </div> */}
 
             <div className="text-center text-sm">
               Don't have an account?{" "}

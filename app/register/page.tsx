@@ -70,7 +70,7 @@ export default async function RegisterPage() {
                   className="focus-visible:ring-[#9bc3a2]"
                 />
               </div>
-              <div className="flex items-start space-x-2">
+              <div className="flex items-start space-x-2 my-4">
                 <Checkbox id="terms" name="terms" className="border-[#9bc3a2] data-[state=checked]:bg-[#9bc3a2] mt-1" />
                 <Label htmlFor="terms" className="text-sm leading-tight">
                   I agree to the{" "}
@@ -86,9 +86,9 @@ export default async function RegisterPage() {
               <Button className="w-full bg-[#9bc3a2] hover:bg-[#9bc3a2]/90" type="submit">Create Account</Button>
             </form>
           </CardContent>
-          {/* <CardFooter className="flex flex-col space-y-4">
+          <CardFooter className="flex flex-col space-y-4">
 
-            <div className="relative my-2">
+            {/* <div className="relative my-2">
               <div className="absolute inset-0 flex items-center">
                 <span className="w-full border-t border-gray-300" />
               </div>
@@ -133,7 +133,7 @@ export default async function RegisterPage() {
                 </svg>
                 Facebook
               </Button>
-            </div>
+            </div> */}
 
             <div className="text-center text-sm">
               Already have an account?{" "}
@@ -141,7 +141,7 @@ export default async function RegisterPage() {
                 Sign in
               </Link>
             </div>
-          </CardFooter> */}
+          </CardFooter>
         </Card>
       </main>
 
